@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DEFAULT_IMAGE_PROFILES, newId, type ComfyNodeMap, type ImageProfile, type Lora, type Settings } from '@archsage/shared';
 import { api, type WorkflowNode } from '../api.ts';
@@ -325,7 +325,6 @@ function LoraSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettings
 
 function IllustTab({ s, set, onSaved }: { s: DraftSettings; set: (fn: (s: DraftSettings) => void) => void; onSaved: (s: Settings) => void }) {
   const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const nodes = useQuery({ queryKey: ['workflowNodes', s.comfy.workflowName], queryFn: api.workflowNodes });
   const loaded = (ns: Settings) => {
     qc.setQueryData(['settings'], ns);
@@ -333,10 +332,6 @@ function IllustTab({ s, set, onSaved }: { s: DraftSettings; set: (fn: (s: DraftS
     qc.invalidateQueries({ queryKey: ['workflowNodes'] });
     qc.invalidateQueries({ queryKey: ['comfyOptions'] });
   };
-  const load = useMutation({
-    mutationFn: async (f: File) => api.loadWorkflow(JSON.parse(await f.text()), f.name),
-    onSuccess: loaded,
-  });
   const reset = useMutation({ mutationFn: api.resetWorkflow, onSuccess: loaded });
 
   return (
@@ -356,46 +351,27 @@ function IllustTab({ s, set, onSaved }: { s: DraftSettings; set: (fn: (s: DraftS
       </section>
       <PresetSection s={s} set={set} />
       <LoraSection s={s} set={set} />
-      <section className="space-y-3">
-        <h2 className="text-[15px] font-semibold">ワークフロー</h2>
-        <Card className="space-y-4 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1">
-              {s.comfy.workflow ? (
+      {/* ワークフローの読み込みは今は出さない（要望があれば戻す）。前の版で読み込んだ人だけ、戻せるように残す */}
+      {s.comfy.workflow && (
+        <section className="space-y-3">
+          <h2 className="text-[15px] font-semibold">ワークフロー</h2>
+          <Card className="space-y-4 p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
                 <span>
                   {s.comfy.workflowName} <Badge>読み込んだもの</Badge>
                 </span>
-              ) : (
-                <span>
-                  Anima <Badge tone="gold">同梱</Badge>
-                </span>
-              )}
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".json,application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) load.mutate(f);
-                e.target.value = '';
-              }}
-            />
-            <Button size="sm" onClick={() => fileRef.current?.click()}>
-              <Icon name="upload" size={13} /> 読み込む
-            </Button>
-            {s.comfy.workflow && (
+              </div>
               <Button size="sm" onClick={() => reset.mutate()}>
                 同梱のものに戻す
               </Button>
-            )}
-          </div>
-          <p className="text-xs text-faint">ComfyUIの「Export (API)」で書き出したJSONを読み込みます。同梱のものでできないことをしたいときに使います。プロンプトやプリセットの値を入れるノードは自動で探します。違っていたら下で直してください。</p>
-          <ErrorText error={load.error ?? reset.error} />
-          {s.comfy.workflow && nodes.data && <NodeMapEditor map={s.comfy.nodeMap} nodes={nodes.data.nodes} onChange={(m) => set((d) => void (d.comfy.nodeMap = m))} />}
-        </Card>
-      </section>
+            </div>
+            <p className="text-xs text-faint">ワークフローの読み込みは、今は対応していません。うまく描けないときは、同梱のもの（Anima）に戻してください。</p>
+            <ErrorText error={reset.error} />
+            {nodes.data && <NodeMapEditor map={s.comfy.nodeMap} nodes={nodes.data.nodes} onChange={(m) => set((d) => void (d.comfy.nodeMap = m))} />}
+          </Card>
+        </section>
+      )}
     </div>
   );
 }

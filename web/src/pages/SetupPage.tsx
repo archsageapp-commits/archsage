@@ -68,7 +68,7 @@ export function SetupPage() {
           )}
           {step === 2 && (
             <div className="space-y-4">
-              <p className="text-sm text-dim">{T.illust}はComfyUIで作ります。Anima用のワークフローを同梱しているので、Animaのモデルが入っていればそのまま使えます。ほかのワークフローは設定画面で読み込めます。</p>
+              <p className="text-sm text-dim">{T.illust}はComfyUIで作ります。Anima用のワークフローを同梱しているので、Animaのモデルが入っていればそのまま使えます。</p>
               <ComfyEditor s={draft} set={set} />
             </div>
           )}
