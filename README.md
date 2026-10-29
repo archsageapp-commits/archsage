@@ -22,29 +22,21 @@ Windows 用のインストーラーを [Releases](https://github.com/archsageapp
 
 ## Anima について
 
-[Anima](https://huggingface.co/circlestone-labs/Anima) は、CircleStone Labs と Comfy Org が作った、アニメ調のイラスト向けの画像生成モデルです（2B）。Danbooru 風のタグと英語の文のどちらでも指示でき、Archsage は両方を組み合わせて挿絵のプロンプトを作ります。写実的な絵は苦手です。
+挿絵は、[Anima](https://huggingface.co/circlestone-labs/Anima) という画像生成AIで作ります。自分のPCで動かせて、アニメ調のイラストが得意です。動かすには、ある程度の性能の GPU（グラフィックボード）が要ります。
 
-**入れるファイル**（Hugging Face のページから入手して、ComfyUI の次のフォルダに置きます）
+Anima は、タグだけでなく英語の文でも指示できます。これは SDXL 系のモデルにはない特長で、Archsage は場面の様子を英語の文にして渡しています。そのため、Anima 以外のモデルには対応していません。
 
-| ファイル | 置く場所 |
-| --- | --- |
-| 拡散モデル（下の版のどれか） | `ComfyUI/models/diffusion_models` |
-| `qwen_3_06b_base.safetensors`（テキストエンコーダー） | `ComfyUI/models/text_encoders` |
-| `qwen_image_vae.safetensors`（VAE） | `ComfyUI/models/vae` |
+**モデルを入れる**
 
-**版**: 設定の画面の「プリセット」で切り替えます。版ごとに、モデルの名前、ステップ数、CFG、品質タグ、ネガティブがまとめて変わります。
+- 基本のモデルは、[Hugging Face の Anima のページ](https://huggingface.co/circlestone-labs/Anima)から入手できます。初めの設定は `anima-aesthetic-v1.1.safetensors` です
+- [Civitai](https://civitai.com/) で配られている Anima の派生モデルも使えます。設定の画面の「プリセット」の「モデル」で選びます
 
-| プリセット | ファイル | 向き |
-| --- | --- | --- |
-| Anima Aesthetic（初めの設定） | `anima-aesthetic-v1.1.safetensors` | 絵柄が整っていて安定する |
-| Anima Turbo | `anima-turbo-v1.1.safetensors` | 速い（10ステップ）。絵のばらつきは少なめ |
-| Anima Base | `anima-base-v1.0.safetensors` | 手を加えていない元のモデル。LoRA を作る人向け |
+どのモデルでも、Hugging Face のページにある次の2つのファイルが要ります。
 
-ファイルの名前を変えて置いたときは、プリセットの「モデル」で ComfyUI にあるファイルから選び直せます。LoRA も設定の画面で足せます。
+- `qwen_3_06b_base.safetensors` → `ComfyUI/models/text_encoders`
+- `qwen_image_vae.safetensors` → `ComfyUI/models/vae`
 
-**ライセンス**: Anima は CircleStone Labs の非商用ライセンスです。作った画像は商用にも使えますが、モデルそのものを商用に使うには別のライセンスが要ります。くわしくは配布元のページを見てください。
-
-Anima 以外のモデルを使うときは、そのモデルの ComfyUI のワークフローを「Export (API)」で書き出して、設定の画面で読み込めます。
+モデル本体は `ComfyUI/models/diffusion_models` に置きます。
 
 ## はじめかた
 
