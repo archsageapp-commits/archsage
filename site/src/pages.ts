@@ -77,9 +77,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:color-mix(in o
 .chip{display:inline-flex;align-items:center;border-radius:999px;background:var(--panel2);border:1px solid var(--line);padding:0 9px;font-size:11.5px;line-height:20px;color:var(--dim)}
 .notice{border:1px solid color-mix(in oklab,var(--gold) 30%,transparent);background:color-mix(in oklab,var(--gold) 8%,transparent);color:var(--gold-soft);border-radius:8px;padding:10px 14px;font-size:13px}
 .notice-danger{border-color:var(--danger-line);background:var(--danger-bg);color:var(--danger)}
-.search{display:flex;gap:8px;max-width:520px}
+.search{display:flex;gap:8px;max-width:520px;margin-bottom:20px}
 .search input{flex:1}
-.ad{border:1px dashed var(--line-strong);border-radius:8px;color:var(--faint);text-align:center;padding:14px;margin:20px 0;font-size:12px}
 .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
 @media(max-width:1000px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:780px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

@@ -101,7 +101,6 @@ export function createSiteApp(opts: SiteOptions) {
             <input name="q" value="${q}" placeholder="題名、タグ、元作品名で探す" />
             <button class="btn btn-primary">${icon('search')}探す</button>
           </form>
-          <div class="ad">広告の場所（仮）</div>
           ${q ? html`<p class="faint" style="margin-bottom:12px">「${q}」の結果 ${rows.length}件</p>` : ''}
           ${rows.length
             ? lore
