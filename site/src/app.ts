@@ -327,10 +327,10 @@ export function createSiteApp(opts: SiteOptions) {
     return c.html(message('受け付けました', c.get('viewer'), '申し立てを受け付けました。7日以内をめどに確かめます'));
   });
 
-  const draft = `下書き・第${opts.termsVersion}版。〔〕の中はまだ決まっていません`;
-  app.get('/terms', (c) => c.html(legalPage(TERMS, c.get('viewer'), draft, html`<p><a href="/guidelines">ガイドライン</a>も規約の一部です</p>`)));
-  app.get('/guidelines', (c) => c.html(legalPage(GUIDELINES, c.get('viewer'), draft, html`<p><a href="/terms">規約</a>に戻る</p>`)));
-  app.get('/privacy', (c) => c.html(legalPage(PRIVACY, c.get('viewer'), `下書き。〔〕の中はまだ決まっていません`, html`<p><a href="/terms">規約</a>も読んでください</p>`)));
+  const version = `第${opts.termsVersion}版`;
+  app.get('/terms', (c) => c.html(legalPage(TERMS, c.get('viewer'), version, html`<p><a href="/guidelines">ガイドライン</a>も規約の一部です</p>`)));
+  app.get('/guidelines', (c) => c.html(legalPage(GUIDELINES, c.get('viewer'), version, html`<p><a href="/terms">規約</a>に戻る</p>`)));
+  app.get('/privacy', (c) => c.html(legalPage(PRIVACY, c.get('viewer'), '', html`<p><a href="/terms">規約</a>も読んでください</p>`)));
 
   // ---- ログイン ----
   const providers = oauthProviders(opts.oauth);

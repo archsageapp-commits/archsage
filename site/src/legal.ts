@@ -1,5 +1,5 @@
 // 規約とガイドラインとプライバシーポリシーの文面。サイトの /terms と /guidelines と /privacy はここから作る。
-// 〔〕の中はまだ決めていないところ。版の番号は文面に書かず、TERMS_VERSION で持つ。
+// 版の番号は文面に書かず、TERMS_VERSION で持つ。
 // 公開の初めは専門家に相談せず、pixiv、小説家になろう、Fantia などの規約を参考にした（要求仕様の「怒られないための線引き」）
 
 export interface LegalSection {
@@ -128,7 +128,7 @@ export const TERMS: LegalDoc = {
       items: ['この規約には日本の法律が適用されます。争いになったときは、運営が指定する裁判所を、第一審の専属的合意管轄裁判所とします。'],
     },
   ],
-  closing: ['〔公開する日〕から適用'],
+  closing: ['2026年10月29日から適用'],
 };
 
 export const PRIVACY: LegalDoc = {
@@ -187,7 +187,7 @@ export const PRIVACY: LegalDoc = {
       items: ['変えるときは、サイトで知らせます。'],
     },
   ],
-  closing: ['〔公開する日〕から適用'],
+  closing: ['2026年10月29日から適用'],
 };
 
 export const GUIDELINES: LegalDoc = {

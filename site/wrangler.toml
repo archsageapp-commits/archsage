@@ -7,17 +7,17 @@ name = "archsage-site"
 main = "src/worker.ts"
 compatibility_date = "2025-09-01"
 # 本番の住所は archsage.app（Cloudflare Registrar で取ったドメインを、この Worker に直接つなぐ）。
-# workers.dev の仮の住所は、本番の住所で動くのを確かめるまで残す。公開の前に false にする。
+# workers.dev の仮の住所は、公開したので止めた（2026-10-29）
 # 版ごとのお試し用の住所（Preview URLs）は出さない
 routes = [{ pattern = "archsage.app", custom_domain = true }]
-workers_dev = true
+workers_dev = false
 preview_urls = false
 
 [vars]
 # 投稿の印とアプリをつなぐ戻り先に使う
 BASE_URL = "https://archsage.app"
 # 規約の文面を変えたら上げる。上げると、前の版に同意した人は投稿の前に同意し直す
-TERMS_VERSION = "2"
+TERMS_VERSION = "3"
 # 開発用の仮のログインは、Google と Discord のログインが通ったので止めた（2026-10-28）。
 # また試すときだけ DEV_LOGIN = "1" を足す。合言葉（npx wrangler secret put DEV_LOGIN_KEY）がないと出ない
 # 日本からのアクセスだけにする。VPN は防げないので、規約にも書く
