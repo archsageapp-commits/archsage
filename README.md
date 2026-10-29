@@ -9,7 +9,7 @@
 
 ## ダウンロード
 
-Windows 用のインストーラーを [Releases](https://github.com/archsageapp-commits/archsage/releases) に置いています。`Archsage Setup （版）.exe` をダウンロードして実行してください。
+Windows 用のインストーラーを [Releases](https://github.com/archsageapp-commits/archsage/releases) に置いています。`Archsage.Setup.x.x.x.exe` をダウンロードして実行してください。
 
 インストーラーには署名をしていないため、「Windows によって PC が保護されました」と出ることがあります。そのときは「詳細情報」→「実行」で進めます。
 
