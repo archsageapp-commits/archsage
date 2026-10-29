@@ -37,7 +37,7 @@ import { exportLorebook, exportPlot, importBundle, importLorebook, importPlot } 
 import { SiteLink, type PostOptions } from './siteLink.ts';
 import type { AppPaths } from './paths.ts';
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.1.1';
 
 function wizardStep(v: string): WizardCandidateStep {
   if (!(WIZARD_CANDIDATE_STEPS as string[]).includes(v)) throw new HttpError(404, `手順の段が違います: ${v}`);
