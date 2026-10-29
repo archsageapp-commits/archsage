@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+/* 色は生成り（温かい白に金茶）。文字の濃さは、背景に対して読みやすい差を取ってある */
+@theme {
+  --color-bg: #f5f1e8;
+  --color-panel: #fffcf6;
+  --color-panel2: #eee7da; /* 吹き出し、選んだタブ、札 */
+  --color-line: #e0d5c2;
+  --color-ink: #2a241c;
+  --color-dim: #5f5648;
+  --color-faint: #807563; /* 補足の文字 */
+  --color-gold: #94650f; /* 強調色。白い文字を載せても読める濃さ */
+  --color-gold-soft: #7a520a; /* 強調色のホバーと見出し */
+  --color-danger: #b53f39;
+  --color-ok: #2f7f4c;
+  --color-field: #ffffff; /* 入力欄や画像の下地 */
+  --color-shade: #f0eadf; /* チャットの入力欄と横の欄 */
+  --color-side: #ebe4d6; /* 左のメニュー */
+  --color-hover: #e7dfd0;
+  --color-line-strong: #c9bba3;
+  --color-track: #d4c9b6; /* 切り替えのオフ */
+  --color-on-gold: #ffffff; /* 強調色の上の文字 */
+  --color-danger-bg: #fbeae7;
+  --color-danger-line: #e9bfba;
+  --color-scroll: #cbbfa9;
+  --font-sans: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-gold) 35%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scroll) transparent;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.prose-chat p + p {
+  margin-top: 0.4em;
+}

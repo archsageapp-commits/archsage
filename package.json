@@ -1,0 +1,34 @@
+{
+  "name": "archsage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "shared",
+    "server",
+    "site",
+    "web",
+    "desktop"
+  ],
+  "scripts": {
+    "dev:server": "node server/src/main.ts",
+    "dev:web": "npm run dev -w web",
+    "dev:site": "node site/src/dev.ts",
+    "build": "npm run build -w web && node scripts/licenses.ts && npm run build -w desktop",
+    "start": "npm run build -w web && node server/src/main.ts",
+    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\" \"site/test/*.test.ts\"",
+    "typecheck": "tsc -p shared && tsc -p server && tsc -p site && tsc -p web && tsc -p desktop",
+    "app": "npm run build && npm run start -w desktop",
+    "dist": "npm run build && npm run dist -w desktop",
+    "pack": "npm run build && npm run pack -w desktop"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

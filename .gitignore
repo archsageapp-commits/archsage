@@ -1,0 +1,14 @@
+node_modules/
+data/
+dist/
+release/
+*.log
+.env
+.env.*
+!.env.example
+site/.data/
+site/.wrangler/
+
+# 公開しない開発の記録と参考資料（手元だけに置く）
+docs/
+ref/
