@@ -433,6 +433,30 @@ test('場面の英文の {名前} を外見と服装に置き換え、2回目か
   assert.ok(out.positive.includes('A girl with long black hair.'));
 });
 
+test('描かない人の名前は日本語のまま残さず、主人公は見る人、ほかのキャラは画面の外の人にする', () => {
+  const hinata = { id: 'a', name: 'ひなた', sex: 'female' as const, countTag: '1girl', appearanceText: 'a girl with orange hair', outfit: { slots: {} }, isPlayer: false };
+  const build = (scene: string, action?: string) =>
+    buildImagePrompt({
+      profile: anima,
+      safety: 'safe',
+      userMode: 'exclude',
+      styleTags: '',
+      people: [hinata],
+      offscreen: [
+        { name: 'ユウ', isPlayer: true },
+        { name: 'しずく', isPlayer: false },
+      ],
+      scene,
+      action,
+    }).positive;
+  const out = build('{ひなた} looks toward {ユウ} and waves at {しずく}.');
+  assert.ok(out.includes('A girl with orange hair looks toward the viewer and waves at someone off-screen.'));
+  // 括弧なしで書かれた名前も置き換える
+  assert.ok(build('ひなた smiles at ユウ.').includes('A girl with orange hair smiles at the viewer.'));
+  assert.ok(build('{ひなた} smiles.', 'holding hands with ユウ').includes('holding hands with the viewer'));
+  assert.doesNotMatch(build('{ひなた} glances at ユウ, then at {ユウ}.'), /ユウ/);
+});
+
 const char = (id: string, name: string, profile = '', tags = ''): Plot['characters'][number] => ({
   id,
   name,

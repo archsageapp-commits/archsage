@@ -28,6 +28,7 @@ export interface ImagePromptInput {
   styleTags: string;
   framing?: string;
   people: ImagePerson[]; // 描く人だけ
+  offscreen?: OffscreenPerson[]; // その場にいるが描かない人。場面の英文に名前が出たら、名前の代わりの呼び方にする
   pose?: ScenePose;
   action?: string;
   location?: LocationState;
@@ -35,6 +36,28 @@ export interface ImagePromptInput {
   weather?: string;
   scene?: string;
   viewerShows?: ViewerShows; // 主観のとき、見る人の手か体が画面に入るか
+}
+
+export interface OffscreenPerson {
+  name: string;
+  isPlayer: boolean;
+}
+
+// 描かない人の呼び方。主人公を描かないときはカメラが主人公の位置になるので、見る人にする
+function offscreenName(p: OffscreenPerson): string {
+  return p.isPlayer ? 'the viewer' : 'someone off-screen';
+}
+
+// 括弧なしで書かれた日本語などの名前を {名前} に直す。英字だけの名前は、そのまま絵に入れても困らないので触らない
+function braceNames(text: string, names: string[]): string {
+  const targets = [...new Set(names.filter((n) => n && /[^\x00-\x7f]/.test(n)))].sort((a, b) => b.length - a.length);
+  if (!targets.length) return text;
+  const re = new RegExp(targets.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  // すでに括弧で囲んである名前はそのままにする
+  return text
+    .split(/(\{[^{}]*\})/)
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(re, (m) => `{${m}}`)))
+    .join('');
 }
 
 export interface ImagePromptOutput {
@@ -235,13 +258,20 @@ function laterName(p: ImagePerson, people: ImagePerson[], pov: boolean): string 
 }
 
 // 場面の英文の {名前} を置き換える。最初は外見と服装、2回目からは短い呼び方にする。
-// 描く人にいない名前は、括弧だけを外してそのまま残す
-export function renderScene(scene: string, people: ImagePerson[], opts: { upperBodyOnly: boolean; pov: boolean; noFeet?: boolean }): { text: string; mentioned: Set<string> } {
+// その場にいて描かない人は、名前の代わりの呼び方にする。どちらにもいない名前は、括弧だけを外してそのまま残す
+export function renderScene(
+  scene: string,
+  people: ImagePerson[],
+  opts: { upperBodyOnly: boolean; pov: boolean; noFeet?: boolean; offscreen?: OffscreenPerson[] },
+): { text: string; mentioned: Set<string> } {
   const mentioned = new Set<string>();
   const text = scene.replace(/\{([^{}]+)\}/g, (m: string, raw: string, offset: number, all: string) => {
     const name = raw.trim();
     const p = people.find((x) => x.name === name);
-    if (!p) return name;
+    if (!p) {
+      const off = opts.offscreen?.find((x) => x.name === name);
+      return off ? offscreenName(off) : name;
+    }
     if (opts.pov && p.isPlayer) return 'the viewer';
     if (mentioned.has(p.id)) return laterName(p, people, opts.pov);
     mentioned.add(p.id);
@@ -265,7 +295,11 @@ export function buildImagePrompt(input: ImagePromptInput): ImagePromptOutput {
   const viewer = input.userMode === 'pov' ? people.find((p) => p.isPlayer) : undefined;
   const pov = !!viewer;
   const others = people.filter((p) => p !== viewer);
-  const opts = { upperBodyOnly, pov, noFeet: isNoFeetFraming(input.framing) };
+  const offscreen = input.offscreen ?? [];
+  const opts = { upperBodyOnly, pov, noFeet: isNoFeetFraming(input.framing), offscreen };
+  // 名前が日本語のまま絵に入らないよう、括弧なしで書かれた名前も {名前} として扱う
+  const allNames = [...people.map((p) => p.name ?? ''), ...offscreen.map((p) => p.name)];
+  const braced = (s: string) => braceNames(s, allNames);
 
   // 品質 → safety → 人数 → モード → 画風 → 構図
   const head: string[] = [...splitTags(profile.qualityTags), ...SAFETY_TAGS[normalizeSafety(input.safety)]];
@@ -276,9 +310,12 @@ export function buildImagePrompt(input: ImagePromptInput): ImagePromptOutput {
 
   // 体位と接触 → その場限りの動き → 背景。タグに残った {名前} は呼び方に直す
   const tail: string[] = [];
-  const named = (s: string) => s.replace(/\{([^{}]+)\}/g, (_m, raw: string) => {
-    const p = people.find((x) => x.name === raw.trim());
-    return p ? laterName(p, people, pov) : raw.trim();
+  const named = (s: string) => braced(s).replace(/\{([^{}]+)\}/g, (_m, raw: string) => {
+    const name = raw.trim();
+    const p = people.find((x) => x.name === name);
+    if (p) return laterName(p, people, pov);
+    const off = offscreen.find((x) => x.name === name);
+    return off ? offscreenName(off) : name;
   });
   if (input.pose?.position) tail.push(...splitTags(named(input.pose.position)));
   for (const c of input.pose?.contacts ?? []) if (c.what.trim()) tail.push(named(c.what.trim()));
@@ -297,7 +334,7 @@ export function buildImagePrompt(input: ImagePromptInput): ImagePromptOutput {
     if (shows === 'hands') return [viewerHandsSentence(viewer)];
     return [];
   };
-  const rawScene = input.scene ?? '';
+  const rawScene = braced(input.scene ?? '');
   let sentences: string[];
   if (/\{[^{}]+\}/.test(rawScene)) {
     // 場面の英文が人の名前で書かれているとき: 名前を外見と服装に置き換え、場面に出なかった人だけ人ごとの英文を足す

@@ -317,6 +317,11 @@ export function buildIllustImagePrompt(input: IllustBuildInput): ImagePromptOutp
     styleTags: input.plot.style.styleTags,
     framing: input.result.framing,
     people: drawn,
+    // 描かない主人公やキャラの名前が場面の英文に出たときは、名前の代わりの呼び方にする
+    offscreen: [
+      ...people.filter((p) => !found.includes(p)).map((p) => ({ name: p.name, isPlayer: p.isPlayer })),
+      ...input.plot.characters.filter((c) => !people.some((p) => p.id === c.id)).map((c) => ({ name: c.name, isPlayer: false })),
+    ],
     pose: input.state.pose,
     action: input.result.action,
     location: input.state.location,
