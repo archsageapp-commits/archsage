@@ -258,10 +258,11 @@ export function WizardPage() {
     },
     onSuccess: (p) => setPlot(p),
   });
-  const icon = useMutation({
-    mutationFn: async (a: { charId: string; file: string }) => {
+  // 試した絵から、アイコンか立ち絵を選ぶ
+  const pick = useMutation({
+    mutationFn: async (a: { target: string; file: string }) => {
       await flush();
-      return api.wizardIcon(id, a.charId, a.file);
+      return api.wizardPick(id, a.target, a.file);
     },
     onSuccess: (p) => setPlot(p),
   });
@@ -332,6 +333,7 @@ export function WizardPage() {
     onRemake: (request: string) => person.mutate({ target, request }),
     onUndo: () => undo.mutate(target),
     onTry: (kind: 'full' | 'bust') => tryLook.mutate({ target, kind }),
+    onPick: (file: string) => pick.mutate({ target, file }),
     onOpen: (files: string[], index: number) => setLightbox({ files, index }),
   });
   const selected = p.characters.find((c) => c.id === sel) ?? p.characters[0];
@@ -377,7 +379,7 @@ export function WizardPage() {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl px-6 py-6">
-          <ErrorText error={generate.error ?? person.error ?? undo.error ?? remove.error ?? icon.error ?? useCover.error ?? choose.error ?? finish.error ?? reset.error ?? saveConcept.error} />
+          <ErrorText error={generate.error ?? person.error ?? undo.error ?? remove.error ?? pick.error ?? useCover.error ?? choose.error ?? finish.error ?? reset.error ?? saveConcept.error} />
           {view !== 'concept' && STALE_HINTS[view] && stale.includes(view) && <p className="mb-4 text-sm text-gold">{STALE_HINTS[view]}</p>}
           {view === 'concept' && (
             <div className="mx-auto max-w-2xl space-y-4">
@@ -459,7 +461,6 @@ export function WizardPage() {
                       avatar={selected.avatar}
                       fullBody={selected.fullBody}
                       {...personProps(selected.id)}
-                      onIcon={(file) => icon.mutate({ charId: selected.id, file })}
                       onRemove={() => remove.mutate(selected.id)}
                     />
                   ) : creating ? (
@@ -476,7 +477,7 @@ export function WizardPage() {
           )}
           {view === 'player' && (
             <div className="space-y-4">
-              <p className="text-sm text-dim">あなたが演じる{T.player}を作ります。見た目の英文と初めの服装も作り、「見た目を試す」で全身の絵を描いて確かめられます。</p>
+              <p className="text-sm text-dim">あなたが演じる{T.player}を作ります。見た目の英文と初めの服装も作り、「立ち絵を描く」で全身の絵を描いて確かめられます。</p>
               {hasPlayer(p) && p.players[0] ? (
                 <PersonCard
                   name={p.players[0].name}
@@ -604,8 +605,8 @@ function PersonCard({
   onRemake,
   onUndo,
   onTry,
+  onPick,
   onOpen,
-  onIcon,
   onRemove,
 }: {
   isChar?: boolean;
@@ -626,13 +627,11 @@ function PersonCard({
   onRemake: (request: string) => void;
   onUndo: () => void;
   onTry: (kind: 'full' | 'bust') => void;
+  onPick: (file: string) => void;
   onOpen: (files: string[], index: number) => void;
-  onIcon?: (file: string) => void;
   onRemove?: () => void;
 }) {
   const [request, setRequest] = useState('');
-  // 新しい絵から並べる
-  const shown = [...tries].reverse();
   const remake = () => {
     onRemake(request.trim());
     setRequest('');
@@ -664,41 +663,38 @@ function PersonCard({
         )}
       </div>
       <ErrorText error={imageError} />
-      {shown.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {shown.map((t, i) => (
-            <div key={t.id} className="shrink-0 space-y-1">
-              <button type="button" onClick={() => onOpen(shown.map((x) => x.file), i)} className="block">
-                <img src={imageUrl(t.file)} alt="" className={cx('h-28 rounded-md border object-cover', t.kind === 'bust' ? 'aspect-square' : 'aspect-[2/3]', t.file === avatar || t.file === fullBody ? 'border-gold' : 'border-line')} />
-              </button>
-              {isChar && t.kind === 'bust' && onIcon && (t.file === avatar ? <Badge tone="gold">アイコン</Badge> : <Button size="sm" variant="ghost" onClick={() => onIcon(t.file)}>アイコンにする</Button>)}
-              {t.kind === 'full' && t.file === fullBody && <Badge tone="gold">立ち絵</Badge>}
-            </div>
-          ))}
-        </div>
-      )}
       <div className="flex gap-4">
-        <div className="w-28 shrink-0 space-y-2">
+        <div className="w-28 shrink-0 space-y-4">
           {isChar && (
-            <>
-              <div className="aspect-square w-28 overflow-hidden rounded-lg border border-line bg-panel2">
-                {avatar ? <img src={imageUrl(avatar)} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-2xl text-faint">{name.slice(0, 1) || '?'}</div>}
-              </div>
-              <Button size="sm" className="w-28" onClick={() => onTry('bust')} disabled={imageBusy} title="バストアップの絵を描いて、アイコンにする">
-                {trying === 'bust' ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="user" size={13} />} アイコンを描く
-              </Button>
-            </>
+            <LookSlot
+              kind="bust"
+              current={avatar}
+              tries={tries}
+              empty={<div className="flex h-full items-center justify-center text-2xl text-faint">{name.slice(0, 1) || '?'}</div>}
+              label="アイコンを描く"
+              title="バストアップの絵を描いて、アイコンにする"
+              icon="user"
+              spinning={trying === 'bust'}
+              disabled={imageBusy}
+              onTry={() => onTry('bust')}
+              onPick={onPick}
+              onOpen={onOpen}
+            />
           )}
-          {fullBody ? (
-            <button type="button" onClick={() => onOpen([fullBody], 0)} className="block w-28" title="立ち絵（最後に描いた全身）">
-              <img src={imageUrl(fullBody)} alt="" className="aspect-[2/3] w-28 rounded-lg border border-line object-cover" />
-            </button>
-          ) : (
-            <div className="flex aspect-[2/3] w-28 items-center justify-center rounded-lg border border-dashed border-line px-2 text-center text-[11px] text-faint">立ち絵はまだありません</div>
-          )}
-          <Button size="sm" className="w-28" onClick={() => onTry('full')} disabled={imageBusy} title="全身の絵を描いて、服装を確かめる">
-            {trying === 'full' ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="image" size={13} />} 立ち絵を描く
-          </Button>
+          <LookSlot
+            kind="full"
+            current={fullBody}
+            tries={tries}
+            empty={<div className="flex h-full items-center justify-center px-2 text-center text-[11px] text-faint">立ち絵はまだありません</div>}
+            label="立ち絵を描く"
+            title="全身の絵を描いて、服装を確かめる"
+            icon="image"
+            spinning={trying === 'full'}
+            disabled={imageBusy}
+            onTry={() => onTry('full')}
+            onPick={onPick}
+            onOpen={onOpen}
+          />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
           <Field label="名前">
@@ -719,6 +715,65 @@ function PersonCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// アイコンか立ち絵の枠。描いた絵は ‹ › で切り替え、表示している絵をそのまま使う
+function LookSlot({
+  kind,
+  current,
+  tries,
+  empty,
+  label,
+  title,
+  icon,
+  spinning,
+  disabled,
+  onTry,
+  onPick,
+  onOpen,
+}: {
+  kind: 'bust' | 'full';
+  current?: string;
+  tries: WizardTry[];
+  empty: ReactNode;
+  label: string;
+  title: string;
+  icon: string;
+  spinning: boolean;
+  disabled: boolean;
+  onTry: () => void;
+  onPick: (file: string) => void;
+  onOpen: (files: string[], index: number) => void;
+}) {
+  const files = tries.filter((t) => t.kind === kind).map((t) => t.file);
+  const i = current ? files.indexOf(current) : -1;
+  return (
+    <div className="space-y-1.5">
+      <div className={cx('w-28 overflow-hidden rounded-lg border bg-panel2', kind === 'bust' ? 'aspect-square' : 'aspect-[2/3]', current ? 'border-line' : 'border-dashed border-line')}>
+        {current ? (
+          <button type="button" className="block h-full w-full" onClick={() => (i >= 0 ? onOpen(files, i) : onOpen([current], 0))}>
+            <img src={imageUrl(current)} alt="" className="h-full w-full object-cover" />
+          </button>
+        ) : (
+          empty
+        )}
+      </div>
+      {files.length > 1 && (
+        <div className="flex w-28 items-center justify-between text-dim">
+          <Button size="sm" variant="ghost" disabled={i === 0} onClick={() => onPick(files[i < 0 ? files.length - 1 : i - 1])} aria-label="前の絵">
+            <Icon name="left" size={14} />
+          </Button>
+          <span className="text-xs tabular-nums">{i >= 0 ? `${i + 1}/${files.length}` : `–/${files.length}`}</span>
+          <Button size="sm" variant="ghost" disabled={i < 0 || i >= files.length - 1} onClick={() => onPick(files[i + 1])} aria-label="次の絵">
+            <Icon name="right" size={14} />
+          </Button>
+        </div>
+      )}
+      <Button size="sm" className="w-28" onClick={onTry} disabled={disabled} title={title}>
+        {spinning ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={icon} size={13} />} {label}
+      </Button>
+    </div>
   );
 }
 

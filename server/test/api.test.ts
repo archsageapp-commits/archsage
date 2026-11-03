@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createApp } from '../src/app.ts';
@@ -289,14 +289,35 @@ test('シナリオを手順で作る: 筋書きと導入は候補から選び、
     assert.match(r.plot.characters[1].fullBody ?? '', /full-t1/);
     r = await call('POST', `${base}/person/${second.id}/try`, { kind: 'bust' });
     const bust = r.wizard.tries![second.id].find((t) => t.kind === 'bust')!;
-    // アイコンがまだなければ、描いたバストアップがそのままアイコンになる
+    // 描いた絵がそのままアイコンや立ち絵になり、前の絵は試した絵から選び直せる
     assert.equal(r.plot.characters[1].avatar, bust.file);
     r = await call('POST', `${base}/person/${second.id}/try`, { kind: 'bust' });
-    assert.equal(r.plot.characters[1].avatar, bust.file);
     const next = r.wizard.tries![second.id].at(-1)!;
-    const iconed = await call<Plot>('POST', `${base}/person/${second.id}/icon`, { file: next.file });
-    assert.equal(iconed.characters[1].avatar, next.file);
-    await assert.rejects(call('POST', `${base}/person/${second.id}/icon`, { file: 'plots/x/y.png' }), /見つかりません/);
+    assert.equal(r.plot.characters[1].avatar, next.file);
+    assert.equal((await call<Plot>('POST', `${base}/person/${second.id}/pick`, { file: bust.file })).characters[1].avatar, bust.file);
+    r = await call('POST', `${base}/person/${second.id}/try`, { kind: 'full' });
+    const fulls = r.wizard.tries![second.id].filter((t) => t.kind === 'full');
+    assert.equal(r.plot.characters[1].fullBody, fulls[1].file);
+    assert.equal((await call<Plot>('POST', `${base}/person/${second.id}/pick`, { file: fulls[0].file })).characters[1].fullBody, fulls[0].file);
+    await assert.rejects(call('POST', `${base}/person/${second.id}/pick`, { file: 'plots/x/y.png' }), /見つかりません/);
+
+    // AIで作り直すと、描いた絵は外れて消える。元に戻すと、前のアイコンと立ち絵が戻る
+    const before = (await call<Plot>('GET', `/plots/${p.id}`)).characters[1];
+    const triedFiles = r.wizard.tries![second.id].map((t) => t.file);
+    pr = await call('POST', `${base}/person/${second.id}`, { request: '髪を黒く' });
+    assert.equal(pr.plot.characters[1].avatar, undefined);
+    assert.equal(pr.plot.characters[1].fullBody, undefined);
+    assert.deepEqual(pr.wizard.tries![second.id], []);
+    const exists = (rel: string) => existsSync(join(dataDir, 'images', rel));
+    assert.ok(exists(before.avatar!) && exists(before.fullBody!));
+    for (const f of triedFiles.filter((f) => f !== before.avatar && f !== before.fullBody)) assert.ok(!exists(f));
+    r = await call('POST', `${base}/person/${second.id}/try`, { kind: 'bust' });
+    const remadeIcon = r.plot.characters[1].avatar!;
+    r = await call('POST', `${base}/person/${second.id}/undo`);
+    assert.equal(r.plot.characters[1].avatar, before.avatar);
+    assert.equal(r.plot.characters[1].fullBody, before.fullBody);
+    assert.deepEqual(r.wizard.tries![second.id].map((t) => t.file), [before.avatar, before.fullBody]);
+    assert.ok(!exists(remadeIcon));
 
     // サムネイルは注文を添えて描ける。まだなければ最初の絵を使い、あとから選び直せる
     r = await call('POST', `${base}/cover`, { request: '灯台の前で、2人がコーヒーを飲む' });

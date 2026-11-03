@@ -344,9 +344,9 @@ export function createApp(opts: AppOptions) {
     if (kind !== 'full' && kind !== 'bust') throw new HttpError(400, '絵の種類が違います');
     return c.json(await core.wizardTry(c.req.param('id'), c.req.param('target'), kind));
   });
-  api.post('/plots/:id/wizard/person/:target/icon', async (c) => {
+  api.post('/plots/:id/wizard/person/:target/pick', async (c) => {
     const { file } = await readJson<{ file?: string }>(c);
-    return c.json(core.wizardIcon(c.req.param('id'), c.req.param('target'), String(file ?? '')));
+    return c.json(core.wizardPick(c.req.param('id'), c.req.param('target'), String(file ?? '')));
   });
   // サムネイルを描く。注文は自由に書ける
   api.post('/plots/:id/wizard/cover', async (c) => {

@@ -165,7 +165,7 @@ export const api = {
   wizardUndo: (plotId: string, target: string) => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/person/${target}/undo`),
   wizardRemove: (plotId: string, charId: string) => req<{ plot: Plot; wizard: PlotWizard }>('DELETE', `/plots/${plotId}/wizard/person/${charId}`),
   wizardTry: (plotId: string, target: string, kind: 'full' | 'bust') => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/person/${target}/try`, { kind }),
-  wizardIcon: (plotId: string, charId: string, file: string) => req<Plot>('POST', `/plots/${plotId}/wizard/person/${charId}/icon`, { file }),
+  wizardPick: (plotId: string, target: string, file: string) => req<Plot>('POST', `/plots/${plotId}/wizard/person/${target}/pick`, { file }),
   // present は描くキャラの id、player は主人公も描くか
   wizardCover: (plotId: string, request: string, present?: string[], player?: boolean) => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/cover`, { request, present, player }),
   wizardUseCover: (plotId: string, file: string) => req<Plot>('POST', `/plots/${plotId}/wizard/cover/use`, { file }),

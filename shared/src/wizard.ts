@@ -302,14 +302,13 @@ export function applyWizardPerson(plot: Plot, target: string, person: WizardPers
   return { plot: next, id: target };
 }
 
-// 作り直す前の中身に戻す。アイコンと立ち絵は、そのあと選び直したものを残す
+// 作り直す前の中身に戻す。作り直すときに絵を外すので、アイコンと立ち絵も前のものに戻す
 export function restorePerson(plot: Plot, target: string, prev: PlotCharacter | Player): Plot {
   const next = structuredClone(plot);
   if (target === PLAYER_TARGET) {
-    const now = next.players[0];
-    next.players = [{ ...(prev as Player), fullBody: now?.fullBody }, ...next.players.slice(1)];
+    next.players = [prev as Player, ...next.players.slice(1)];
   } else {
-    next.characters = next.characters.map((c) => (c.id === target ? { ...(prev as PlotCharacter), avatar: c.avatar, fullBody: c.fullBody } : c));
+    next.characters = next.characters.map((c) => (c.id === target ? (prev as PlotCharacter) : c));
   }
   return next;
 }

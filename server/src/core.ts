@@ -932,15 +932,31 @@ export class Core {
     const prev = target === NEW_PERSON ? undefined : target === PLAYER_TARGET ? latest.players[0] : this.personOrThrow(latest, target);
     let wizard = this.store.getWizard(plotId);
     const { plot: applied, id } = applyWizardPerson(latest, target, person);
+    // 作り直した人は見た目も変わるので、描いた絵は外して消す。作り直す前のアイコンと立ち絵だけは、元に戻せるよう残す
+    const dropped: string[] = [];
+    const kept = new Set<string>();
+    if (prev) {
+      const remade = personOf(applied, id);
+      if (remade) {
+        if ('avatar' in remade) remade.avatar = undefined;
+        remade.fullBody = undefined;
+      }
+      dropped.push(...imagesOf(prev), ...(wizard.tries?.[id] ?? []).map((t) => t.file), ...imagesOf(wizard.previous?.[id]));
+      wizard = { ...wizard, tries: { ...wizard.tries, [id]: [] } };
+    }
     const next = normalizePlot({ ...applied, updatedAt: Date.now() });
     // 作り直す前の中身を1つだけ残し、元に戻せるようにする
     const hadContent = prev && (target !== PLAYER_TARGET || (prev as Player).description.trim() || (prev as Player).appearanceText?.trim());
-    if (hadContent) wizard = { ...wizard, previous: { ...wizard.previous, [id]: prev } };
+    if (hadContent) {
+      wizard = { ...wizard, previous: { ...wizard.previous, [id]: prev } };
+      for (const f of imagesOf(prev)) kept.add(f);
+    }
     wizard = markChanged(wizard, target === PLAYER_TARGET ? 'player' : 'cast');
     this.store.tx(() => {
       this.store.plots.put(next);
       this.store.putWizard(wizard);
     });
+    for (const f of new Set(dropped)) if (!kept.has(f)) this.dropPlotImage(plotId, f);
     return { plot: next, wizard, id };
   }
 
@@ -949,14 +965,22 @@ export class Core {
     const prev = wizard.previous?.[target];
     if (!prev) throw new HttpError(404, '戻せる中身がありません');
     const plot = this.plotOf(plotId);
-    this.personOrThrow(plot, target);
+    const cur = this.personOrThrow(plot, target);
     const next = normalizePlot({ ...restorePerson(plot, target, prev), updatedAt: Date.now() });
     const { [target]: _, ...rest } = wizard.previous ?? {};
-    const w = markChanged({ ...wizard, previous: rest }, target === PLAYER_TARGET ? 'player' : 'cast');
+    // 作り直したあとに描いた絵は消し、前のアイコンと立ち絵を試した絵として並べ直す
+    const back = new Set(imagesOf(prev));
+    const dropped = [...imagesOf(cur), ...(wizard.tries?.[target] ?? []).map((t) => t.file)];
+    const avatar = 'avatar' in prev ? prev.avatar : undefined;
+    const tried: WizardTry[] = [];
+    if (avatar) tried.push({ id: newId(8), kind: 'bust', file: avatar, createdAt: Date.now() });
+    if (prev.fullBody) tried.push({ id: newId(8), kind: 'full', file: prev.fullBody, createdAt: Date.now() });
+    const w = markChanged({ ...wizard, previous: rest, tries: { ...wizard.tries, [target]: tried } }, target === PLAYER_TARGET ? 'player' : 'cast');
     this.store.tx(() => {
       this.store.plots.put(next);
       this.store.putWizard(w);
     });
+    for (const f of new Set(dropped)) if (!back.has(f)) this.dropPlotImage(plotId, f);
     return { plot: next, wizard: w };
   }
 
@@ -970,18 +994,18 @@ export class Core {
     const c = this.personOrThrow(plot, charId) as PlotCharacter;
     const next = normalizePlot({ ...removeWizardCharacter(plot, charId), updatedAt: Date.now() });
     const wizard = this.store.getWizard(plotId);
-    const { [charId]: _p, ...previous } = wizard.previous ?? {};
+    const { [charId]: before, ...previous } = wizard.previous ?? {};
     const { [charId]: tried = [], ...tries } = wizard.tries ?? {};
     const w = markChanged({ ...wizard, previous, tries, present: wizard.present?.filter((x) => x !== charId) }, 'cast');
     this.store.tx(() => {
       this.store.plots.put(next);
       this.store.putWizard(w);
     });
-    for (const rel of new Set([c.avatar, c.fullBody, ...tried.map((t) => t.file)])) this.dropPlotImage(plotId, rel);
+    for (const rel of new Set([c.avatar, c.fullBody, ...tried.map((t) => t.file), ...imagesOf(before)])) this.dropPlotImage(plotId, rel);
     return { plot: next, wizard: w };
   }
 
-  // 見た目を試す。全身は立ち絵としてその人に入れ、バストアップはアイコンの候補として並べる
+  // 見た目を試す。全身は立ち絵に、バストアップはアイコンにして、試した絵として並べる
   async wizardTry(plotId: string, target: string, kind: 'full' | 'bust'): Promise<{ plot: Plot; wizard: PlotWizard }> {
     const plot = this.plotOf(plotId);
     const settings = this.store.getSettings();
@@ -992,19 +1016,20 @@ export class Core {
       this.dropPlotImage(plotId, rel);
       throw new HttpError(404, 'この人は外されました');
     }
+    // 描いた絵をそのまま使う。前の絵は試した絵に残るので、画面で選び直せる
     if (kind === 'full') person.fullBody = rel;
-    // アイコンがまだなければ、描いたバストアップをそのままアイコンにする
-    if (kind === 'bust' && 'illust' in person && !person.avatar) person.avatar = rel;
+    if (kind === 'bust' && 'illust' in person) person.avatar = rel;
     const avatar = 'avatar' in person ? person.avatar : undefined;
     return this.keepTry(latest, target, kind, rel, [avatar, person.fullBody]);
   }
 
-  // 試した絵を並べて残す。古い絵は、使っている絵でなければ消す
+  // 試した絵を並べて残す。種類ごとに数を決め、あふれた古い絵は、使っている絵でなければ消す
   private keepTry(plot: Plot, target: string, kind: WizardTry['kind'], rel: string, used: (string | undefined)[]): { plot: Plot; wizard: PlotWizard } {
     const wizard = this.store.getWizard(plot.id);
-    const list = [...(wizard.tries?.[target] ?? []), { id: newId(8), kind, file: rel, createdAt: Date.now() }];
-    for (const t of list.slice(0, -WIZARD_TRY_KEEP)) if (!used.includes(t.file)) this.dropPlotImage(plot.id, t.file);
-    const w = { ...wizard, tries: { ...wizard.tries, [target]: list.slice(-WIZARD_TRY_KEEP) } };
+    const all = [...(wizard.tries?.[target] ?? []), { id: newId(8), kind, file: rel, createdAt: Date.now() }];
+    const over = new Set(all.filter((t) => t.kind === kind).slice(0, -WIZARD_TRY_KEEP));
+    for (const t of over) if (!used.includes(t.file)) this.dropPlotImage(plot.id, t.file);
+    const w = { ...wizard, tries: { ...wizard.tries, [target]: all.filter((t) => !over.has(t)) } };
     const next = normalizePlot({ ...plot, updatedAt: Date.now() });
     this.store.tx(() => {
       this.store.plots.put(next);
@@ -1037,23 +1062,34 @@ export class Core {
     return this.store.plots.put(normalizePlot({ ...plot, updatedAt: Date.now() }));
   }
 
-  // 試したバストアップをアイコンにする
-  wizardIcon(plotId: string, charId: string, file: string): Plot {
+  // 試した絵を使う。バストアップはアイコンに、全身は立ち絵にする
+  wizardPick(plotId: string, target: string, file: string): Plot {
     const plot = this.plotOf(plotId);
-    const c = this.personOrThrow(plot, charId) as PlotCharacter;
-    const tried = this.store.getWizard(plotId).tries?.[charId] ?? [];
-    if (!tried.some((t) => t.kind === 'bust' && t.file === file)) throw new HttpError(404, '試した絵が見つかりません');
-    // 前のアイコンは、試した絵として残っていなければ消す
-    if (c.avatar && c.avatar !== file && !tried.some((t) => t.file === c.avatar)) this.dropPlotImage(plotId, c.avatar);
-    c.avatar = file;
+    const person = this.personOrThrow(plot, target);
+    const tried = this.store.getWizard(plotId).tries?.[target] ?? [];
+    const t = tried.find((x) => x.file === file && (x.kind === 'bust' || x.kind === 'full'));
+    if (!t) throw new HttpError(404, '試した絵が見つかりません');
+    let old: string | undefined;
+    if (t.kind === 'bust') {
+      if (!('illust' in person)) throw new HttpError(400, '主人公にはアイコンがありません');
+      old = person.avatar;
+      person.avatar = file;
+    } else {
+      old = person.fullBody;
+      person.fullBody = file;
+    }
+    // 前の絵は、試した絵として残っていなければ消す
+    if (old && old !== file && !tried.some((x) => x.file === old)) this.dropPlotImage(plotId, old);
     return this.store.plots.put(normalizePlot({ ...plot, updatedAt: Date.now() }));
   }
 
-  // 候補を全部消して最初からにする。試した絵は、アイコンと立ち絵に使っていなければ消す
+  // 候補を全部消して最初からにする。試した絵と作り直す前の絵は、アイコンと立ち絵に使っていなければ消す
   wizardReset(plotId: string): PlotWizard {
     const plot = this.plotOf(plotId);
     const used = new Set([...plot.characters.flatMap((c) => [c.avatar, c.fullBody]), ...plot.players.map((p) => p.fullBody), plot.listing.cover]);
-    for (const list of Object.values(this.store.getWizard(plotId).tries ?? {})) for (const t of list) if (!used.has(t.file)) this.dropPlotImage(plotId, t.file);
+    const wizard = this.store.getWizard(plotId);
+    const files = [...Object.values(wizard.tries ?? {}).flatMap((list) => list.map((t) => t.file)), ...Object.values(wizard.previous ?? {}).flatMap(imagesOf)];
+    for (const f of new Set(files)) if (!used.has(f)) this.dropPlotImage(plotId, f);
     return this.store.putWizard(emptyWizard(plotId));
   }
 
@@ -1088,6 +1124,12 @@ export { USER_ID };
 
 // 人ごとに残す試した絵の数
 const WIZARD_TRY_KEEP = 8;
+
+// その人のアイコンと立ち絵のファイル
+function imagesOf(p: PlotCharacter | Player | undefined): string[] {
+  if (!p) return [];
+  return [('avatar' in p ? p.avatar : undefined), p.fullBody].filter((f): f is string => !!f);
+}
 
 // サムネイルに描く人。キャラの id と、主人公を描くか
 export interface CoverPeople {
