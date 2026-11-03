@@ -1106,7 +1106,7 @@ function FinishView({
         </Link>
         <Link to={`/plots/${plot.id}`}>
           <Button variant="primary">
-            <Icon name="play" size={13} /> {T.plot}を見る
+            <Icon name="play" size={13} /> この{T.plot}で遊ぶ
           </Button>
         </Link>
       </div>
