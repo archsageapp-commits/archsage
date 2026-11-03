@@ -383,6 +383,7 @@ export interface ImageProfile {
   scheduler: string; // 同上
   qualityTags: string;
   negative: string;
+  loras?: Lora[]; // このプリセットのときだけ掛けるLoRA（turbo LoRA など）。設定の LoRA より先に挟む
 }
 
 export interface Lora {

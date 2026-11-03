@@ -121,10 +121,10 @@ function imageProfileOf(settings: Settings): ImageProfile {
   return settings.imageProfiles.find((p) => p.id === settings.imageProfileId) ?? settings.imageProfiles[0];
 }
 
-// プリセットとLoRAのうち、ワークフローに入れる値
-function presetJob(settings: Settings): Pick<ComfyJob, 'model' | 'steps' | 'cfg' | 'sampler' | 'scheduler' | 'loras'> {
+// プリセットとLoRAのうち、ワークフローに入れる値。LoRA はプリセットだけのものを先に、どのプリセットでも掛けるものを後に挟む
+export function presetJob(settings: Settings): Pick<ComfyJob, 'model' | 'steps' | 'cfg' | 'sampler' | 'scheduler' | 'loras'> {
   const p = imageProfileOf(settings);
-  return { model: p.model, steps: p.steps, cfg: p.cfg, sampler: p.sampler, scheduler: p.scheduler, loras: settings.comfy.loras };
+  return { model: p.model, steps: p.steps, cfg: p.cfg, sampler: p.sampler, scheduler: p.scheduler, loras: [...(p.loras ?? []), ...settings.comfy.loras] };
 }
 
 export interface GenerateOptions {

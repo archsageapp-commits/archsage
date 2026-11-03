@@ -252,6 +252,29 @@ function PresetSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettin
         <Field label="ネガティブ" hint={profile.cfg === 1 ? 'CFGが1のときは、ネガティブは効きません' : undefined}>
           <TextArea rows={2} value={profile.negative} onChange={(e) => setProfile((p) => void (p.negative = e.target.value))} />
         </Field>
+        <div className="space-y-2">
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-[13px] font-medium">このプリセットだけのLoRA</div>
+              <p className="text-xs text-faint">このプリセットで描くときだけ掛けます。turbo LoRA を使うときは、ここに入れてステップ数とCFGをその LoRA のおすすめに合わせます</p>
+            </div>
+            <Button size="sm" onClick={() => setProfile((p) => void (p.loras = [...(p.loras ?? []), { name: '', strength: 1 }]))}>
+              <Icon name="plus" size={13} /> 足す
+            </Button>
+          </div>
+          {(profile.loras ?? []).length > 0 && (
+            <LoraRows
+              loras={profile.loras ?? []}
+              list={choices.lora}
+              setLoras={(fn) =>
+                setProfile((p) => {
+                  p.loras = p.loras ?? [];
+                  fn(p.loras);
+                })
+              }
+            />
+          )}
+        </div>
         <div className="flex justify-end">
           {builtin ? (
             <Button size="sm" variant="ghost" onClick={() => setProfile((p) => void Object.assign(p, structuredClone(builtin)))}>
@@ -275,7 +298,40 @@ function PresetSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettin
   );
 }
 
-// LoRAはプリセットによらず、どのプリセットでも掛ける
+// LoRAの行。ComfyUIにつながれば、入っているファイルから選ぶ
+function LoraRows({ loras, list, setLoras }: { loras: Lora[]; list?: string[]; setLoras: (fn: (l: Lora[]) => void) => void }) {
+  return (
+    <>
+      <div className="grid grid-cols-[1fr_90px_32px] gap-2 text-xs text-dim">
+        <span>ファイル</span>
+        <span>強さ</span>
+      </div>
+      {loras.map((l, i) => (
+        <div key={i} className="grid grid-cols-[1fr_90px_32px] items-center gap-2">
+          {list?.length ? (
+            <Select value={l.name} onChange={(e) => setLoras((ls) => void (ls[i].name = e.target.value))}>
+              <option value="">（選ぶ）</option>
+              {l.name && !list.includes(l.name) && <option value={l.name}>{l.name}（ComfyUIに見つかりません）</option>}
+              {list.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input value={l.name} placeholder="ファイル名（例 style.safetensors）" onChange={(e) => setLoras((ls) => void (ls[i].name = e.target.value.trim()))} />
+          )}
+          <Input type="number" step="0.05" value={l.strength} onChange={(e) => setLoras((ls) => void (ls[i].strength = Number(e.target.value)))} />
+          <Button size="sm" variant="ghost" title="外す" onClick={() => setLoras((ls) => void ls.splice(i, 1))}>
+            <Icon name="x" size={13} />
+          </Button>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// どのプリセットでも掛けるLoRA。画風のLoRAなど
 function LoraSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettings) => void) => void }) {
   const list = useComfyOptions(s).data?.choices.lora;
   const setLoras = (fn: (l: Lora[]) => void) => set((d) => fn(d.comfy.loras));
@@ -284,7 +340,9 @@ function LoraSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettings
       <div className="flex items-end justify-between">
         <div>
           <h2 className="text-[15px] font-semibold">LoRA</h2>
-          <p className="text-xs text-faint">どのプリセットでも、サンプラーの手前に上から順に挟みます。きっかけの語が要るものは、プリセットの品質タグかシナリオの画風タグに書いてください</p>
+          <p className="text-xs text-faint">
+            どのプリセットでも、サンプラーの手前に上から順に挟みます。turbo LoRA のようにプリセットに合わせて使うものは、プリセットの「このプリセットだけのLoRA」に入れてください。きっかけの語が要るものは、プリセットの品質タグかシナリオの画風タグに書いてください
+          </p>
         </div>
         <Button size="sm" onClick={() => setLoras((l) => void l.push({ name: '', strength: 1 }))}>
           <Icon name="plus" size={13} /> 足す
@@ -292,31 +350,7 @@ function LoraSection({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettings
       </div>
       {s.comfy.loras.length > 0 && (
         <Card className="space-y-2 p-4">
-          <div className="grid grid-cols-[1fr_90px_32px] gap-2 text-xs text-dim">
-            <span>ファイル</span>
-            <span>強さ</span>
-          </div>
-          {s.comfy.loras.map((l, i) => (
-            <div key={i} className="grid grid-cols-[1fr_90px_32px] items-center gap-2">
-              {list?.length ? (
-                <Select value={l.name} onChange={(e) => setLoras((ls) => void (ls[i].name = e.target.value))}>
-                  <option value="">（選ぶ）</option>
-                  {l.name && !list.includes(l.name) && <option value={l.name}>{l.name}（ComfyUIに見つかりません）</option>}
-                  {list.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <Input value={l.name} placeholder="ファイル名（例 style.safetensors）" onChange={(e) => setLoras((ls) => void (ls[i].name = e.target.value.trim()))} />
-              )}
-              <Input type="number" step="0.05" value={l.strength} onChange={(e) => setLoras((ls) => void (ls[i].strength = Number(e.target.value)))} />
-              <Button size="sm" variant="ghost" title="外す" onClick={() => setLoras((ls) => void ls.splice(i, 1))}>
-                <Icon name="x" size={13} />
-              </Button>
-            </div>
-          ))}
+          <LoraRows loras={s.comfy.loras} list={list} setLoras={setLoras} />
         </Card>
       )}
     </section>

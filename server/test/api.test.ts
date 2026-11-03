@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createApp } from '../src/app.ts';
+import { presetJob } from '../src/core.ts';
 import { startMockLlm } from './mockLlm.ts';
 import { strToU8, zipSync } from 'fflate';
 import { BUNDLE_FORMAT, BUNDLE_VERSION, packBundle, unpackBundle, type Message, type Player, type PlayerRef, type Plot, type PlotWizard, type Settings } from '@archsage/shared';
@@ -31,6 +32,22 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 }
 
 let plot: Plot;
+
+test('設定: プリセットだけのLoRAは保存され、描くときはどのプリセットでも掛けるLoRAより先に挟む', async () => {
+  const before = ctx.store.getSettings();
+  const profiles = before.imageProfiles.map((p) => (p.id === 'anima-turbo' ? { ...p, loras: [{ name: 'Turbo-ANIMA-v4.safetensors', strength: 1 }] } : p));
+  const s = await call<Settings>('PUT', '/settings', { imageProfiles: profiles, imageProfileId: 'anima-turbo', comfy: { loras: [{ name: 'style.safetensors', strength: 0.8 }] } });
+  assert.deepEqual(s.imageProfiles.find((p) => p.id === 'anima-turbo')?.loras, [{ name: 'Turbo-ANIMA-v4.safetensors', strength: 1 }]);
+  assert.deepEqual(
+    (presetJob(ctx.store.getSettings()).loras ?? []).map((l) => l.name),
+    ['Turbo-ANIMA-v4.safetensors', 'style.safetensors'],
+  );
+  // ほかのプリセットに切り替えれば、turbo LoRA は掛からない
+  await call('PUT', '/settings', { imageProfileId: 'anima' });
+  assert.deepEqual((presetJob(ctx.store.getSettings()).loras ?? []).map((l) => l.name), ['style.safetensors']);
+  await call('PUT', '/settings', { imageProfiles: before.imageProfiles, imageProfileId: before.imageProfileId, comfy: { loras: before.comfy.loras } });
+});
+
 
 test('設定: APIキーは画面に返さず、設定済みかどうかだけ返す', async () => {
   const s = await call<Settings>('PUT', '/settings', {
