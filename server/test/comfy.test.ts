@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { ANIMA_NODE_MAP } from '@archsage/shared';
-import { detectNodeMap, fillWorkflow } from '../src/comfy.ts';
+import { detectNodeMap, fillWorkflow, missingModelMessage } from '../src/comfy.ts';
 
 const root = resolve(import.meta.dirname, '..', '..');
 const anima = JSON.parse(readFileSync(resolve(root, 'assets', 'workflows', 'anima.json'), 'utf8'));
@@ -52,4 +52,15 @@ test('LoRAはサンプラーの手前に上から順に挟み、名前のない�
   // 元のワークフローは変えない
   assert.deepEqual(anima['19'].inputs.model, ['44', 0]);
   assert.equal(Object.keys(fillWorkflow(anima, ANIMA_NODE_MAP, { ...job, loras: [] })).length, Object.keys(anima).length);
+});
+
+test('モデルのファイルがComfyUIにないときは、選び直す場所を伝える', () => {
+  const body = JSON.stringify({
+    error: { type: 'prompt_outputs_failed_validation' },
+    node_errors: { '44': { errors: [{ type: 'value_not_in_list', message: 'Value not in list', extra_info: { input_name: 'unet_name', received_value: 'anima-aesthetic-v1.1.safetensors' } }] } },
+  });
+  assert.equal(missingModelMessage(body), 'モデル「anima-aesthetic-v1.1.safetensors」がComfyUIに見つかりません。設定の「画像生成」のプリセットで、ComfyUIに入っているモデルを選び直してください');
+  // モデル以外の欄や、JSONでない応答はそのまま
+  assert.equal(missingModelMessage(JSON.stringify({ node_errors: { '3': { errors: [{ type: 'value_not_in_list', extra_info: { input_name: 'sampler_name' } }] } } })), undefined);
+  assert.equal(missingModelMessage('Internal Server Error'), undefined);
 });

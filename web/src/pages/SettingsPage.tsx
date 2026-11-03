@@ -153,7 +153,7 @@ function NodeMapEditor({ map, nodes, onChange }: { map: ComfyNodeMap; nodes: Wor
 }
 
 // ComfyUIが返す選択肢から選ぶ。ComfyUIにつながらないときは手で書く。空ならワークフローに書いてある値
-function ChoiceField({ label, value, list, current, onChange }: { label: string; value: string; list?: string[]; current?: string | number; onChange: (v: string) => void }) {
+export function ChoiceField({ label, value, list, current, onChange }: { label: string; value: string; list?: string[]; current?: string | number; onChange: (v: string) => void }) {
   const keep = `ワークフローのまま${current ? `（${current}）` : ''}`;
   return (
     <Field label={label}>
@@ -174,7 +174,7 @@ function ChoiceField({ label, value, list, current, onChange }: { label: string;
   );
 }
 
-function useComfyOptions(s: DraftSettings) {
+export function useComfyOptions(s: DraftSettings) {
   return useQuery({
     queryKey: ['comfyOptions', s.comfy.url, s.comfy.workflowName, JSON.stringify(s.comfy.nodeMap)],
     queryFn: () => api.comfyOptions(s.comfy.url),

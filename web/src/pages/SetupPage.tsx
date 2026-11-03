@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Settings } from '@archsage/shared';
-import { ComfyEditor, ConnectionsEditor, newConnection, YouEditor } from '../components/SettingsParts.tsx';
-import { useSettingsDraft } from './SettingsPage.tsx';
+import { ComfyEditor, ConnectionsEditor, newConnection, YouEditor, type DraftSettings } from '../components/SettingsParts.tsx';
+import { ChoiceField, useComfyOptions, useSettingsDraft } from './SettingsPage.tsx';
 import { T } from '../terms.ts';
-import { Button, Card, cx, ErrorText } from '../ui.tsx';
+import { Button, Card, cx, ErrorText, Field, Select } from '../ui.tsx';
 
 const STEPS = [T.you, T.llm, T.imageGen];
 
@@ -70,6 +70,7 @@ export function SetupPage() {
             <div className="space-y-4">
               <p className="text-sm text-dim">{T.illust}はComfyUIで作ります。Anima用のワークフローを同梱しているので、Animaのモデルが入っていればそのまま使えます。</p>
               <ComfyEditor s={draft} set={set} />
+              <ModelPicker s={draft} set={set} />
             </div>
           )}
           <ErrorText error={save.error} />
@@ -88,6 +89,53 @@ export function SetupPage() {
             )}
           </div>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+// プリセットの名前から、ComfyUIに入っていそうなファイルを探す。Civitaiなどから入れたモデルはファイル名が初期値と違う
+export function guessModel(profileId: string, list: string[]): string | undefined {
+  const key = profileId === 'anima-base' ? 'base' : profileId === 'anima-turbo' ? 'turbo' : profileId === 'anima' ? 'aesthetic' : undefined;
+  if (!key) return undefined;
+  const norm = (f: string) => f.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const found = list.filter((f) => {
+    const n = norm(f);
+    return n.includes('anima') && n.includes(key) && !(key === 'turbo' && n.includes('noturbo'));
+  });
+  return found.find((f) => norm(f).startsWith('anima')) ?? (found.length === 1 ? found[0] : undefined);
+}
+
+// 使うプリセットと、そのモデルのファイル。ComfyUIに入っているファイルから選ぶので、名前の食い違いで描けないことがない
+function ModelPicker({ s, set }: { s: DraftSettings; set: (fn: (s: DraftSettings) => void) => void }) {
+  const options = useComfyOptions(s);
+  const profile = s.imageProfiles.find((p) => p.id === s.imageProfileId) ?? s.imageProfiles[0];
+  const pi = s.imageProfiles.indexOf(profile);
+  const list = options.data?.choices.model;
+  const missing = !!list?.length && !list.includes(profile.model);
+  // 初期値のファイルがなければ、それらしいものを先に選んでおく
+  useEffect(() => {
+    if (!missing || !list) return;
+    const guess = guessModel(profile.id, list);
+    if (guess) set((d) => void (d.imageProfiles[pi].model = guess));
+  }, [missing, profile.id, list?.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!list?.length) return null;
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="プリセット" hint="Animaの版ごとに、生成の値と品質タグをまとめて切り替えます">
+        <Select value={profile.id} onChange={(e) => set((d) => void (d.imageProfileId = e.target.value))}>
+          {s.imageProfiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <div className="space-y-1">
+        <ChoiceField label="モデル" value={profile.model} list={list} current={options.data?.current.model} onChange={(v) => set((d) => void (d.imageProfiles[pi].model = v))} />
+        <p className={cx('text-xs', missing ? 'text-danger' : 'text-faint')}>
+          {missing ? 'このファイルはComfyUIに見つかりません。入れたモデルを選んでください' : 'ComfyUIに入っているモデルから選びます。Civitaiなどから入れたモデルも選べます'}
+        </p>
       </div>
     </div>
   );

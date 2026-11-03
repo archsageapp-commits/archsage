@@ -172,6 +172,24 @@ export async function comfyChoices(url: string, classType: string, input: string
   return Array.isArray(choices) && Array.isArray(choices[0]) ? choices[0].filter((v): v is string => typeof v === 'string') : [];
 }
 
+// モデルのファイル名がComfyUIにないときの断り。Civitaiなどから入れたモデルは名前が違うことが多いので、選び直す場所を書く
+export function missingModelMessage(text: string): string | undefined {
+  let data: { node_errors?: Record<string, { errors?: { type?: string; extra_info?: { input_name?: string; received_value?: unknown } }[] }> };
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  for (const node of Object.values(data.node_errors ?? {})) {
+    for (const e of node.errors ?? []) {
+      if (e.type !== 'value_not_in_list' || !MODEL_INPUTS.includes(e.extra_info?.input_name ?? '')) continue;
+      const name = String(e.extra_info?.received_value ?? '');
+      return `モデル「${name}」がComfyUIに見つかりません。設定の「画像生成」のプリセットで、ComfyUIに入っているモデルを選び直してください`;
+    }
+  }
+  return undefined;
+}
+
 interface HistoryEntry {
   outputs?: Record<string, { images?: { filename: string; subfolder: string; type: string }[] }>;
   status?: { status_str?: string; completed?: boolean; messages?: [string, Record<string, unknown>][] };
@@ -244,7 +262,7 @@ export async function runComfy(url: string, workflow: Workflow, onProgress: (p: 
       throw new ComfyError(`ComfyUI（${base(url)}）につながりません。起動しているか、設定の「画像生成」のURLを確かめてください（${(e as Error).message}）`);
     });
     const text = await res.text();
-    if (!res.ok) throw new ComfyError(`ComfyUIがワークフローを受け付けませんでした（${res.status}）: ${text.slice(0, 500)}`);
+    if (!res.ok) throw new ComfyError(missingModelMessage(text) ?? `ComfyUIがワークフローを受け付けませんでした（${res.status}）: ${text.slice(0, 500)}`);
     const data = JSON.parse(text) as { prompt_id?: string; node_errors?: Record<string, unknown> };
     if (!data.prompt_id) throw new ComfyError(`ComfyUIの応答に prompt_id がありません: ${text.slice(0, 300)}`);
     promptId = data.prompt_id;
