@@ -38,8 +38,13 @@ const VIEWS: { key: View; label: string }[] = [
 
 const STEP_HINTS: Record<WizardCandidateStep, string> = {
   story: `題名、${T.story}、${T.playerPosition}の候補です。`,
-  intro: `物語の出だしの場面の候補です。`,
+  intro: `物語の出だしの場面の候補です。${T.intro}はいくつか作れて、遊び始めるときに選べます。1つ決めたあとにここへ戻ると、別の${T.intro}として足せます。`,
 };
+
+// サムネイルの元にする導入の呼び方。1つしかなければ番号を付けない
+function firstIntroLabel(plot: Plot): string {
+  return plot.intros.length > 1 ? `最初の${T.intro}` : T.intro;
+}
 
 // 前の段があとから変わったときの知らせ。後の段は消さずに残す
 const STALE_HINTS: Partial<Record<WizardStepKey | 'finish', string>> = {
@@ -917,11 +922,11 @@ function IntroView({
         actions={(i, c) => (
           <>
             <Button variant="primary" onClick={() => onChoose(i, c, 'replace')} disabled={disabled}>
-              <Icon name="check" size={14} /> {hasIntro ? `${T.intro}1を置き換える` : 'これにする'}
+              <Icon name="check" size={14} /> {hasIntro ? `${firstIntroLabel(plot)}と置き換える` : 'これにする'}
             </Button>
             {hasIntro && (
               <Button onClick={() => onChoose(i, c, 'add')} disabled={disabled}>
-                <Icon name="plus" size={14} /> {T.intro}として足す
+                <Icon name="plus" size={14} /> 別の{T.intro}として足す
               </Button>
             )}
           </>
@@ -1048,7 +1053,7 @@ function FinishView({
         <div>
           <h2 className="text-[15px] font-semibold">{T.cover}</h2>
           <p className="mt-0.5 text-xs text-faint">
-            一覧に出る縦長の絵です。描く人を選び、どんな絵にしたいかを自由に書けます。空なら{T.intro}1の場面から考えます。
+            一覧に出る縦長の絵です。描く人を選び、どんな絵にしたいかを自由に書けます。空なら{firstIntroLabel(plot)}の場面から考えます。
           </p>
         </div>
         <div className="flex flex-wrap gap-5">
@@ -1080,7 +1085,7 @@ function FinishView({
             </div>
             {nobody && <p className="text-xs text-danger">描く人を1人以上選んでください</p>}
             <div className="flex flex-wrap items-center gap-4">
-              <span className="text-xs text-faint">{T.intro}1の状況を入れる</span>
+              <span className="text-xs text-faint">{firstIntroLabel(plot)}の状況を入れる</span>
               <Toggle checked={withTime} onChange={setWithTime} label="時間帯" />
               <Toggle checked={withWeather} onChange={setWithWeather} label="天気" />
             </div>
