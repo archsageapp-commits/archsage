@@ -167,7 +167,7 @@ export const api = {
   wizardTry: (plotId: string, target: string, kind: 'full' | 'bust') => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/person/${target}/try`, { kind }),
   wizardPick: (plotId: string, target: string, file: string) => req<Plot>('POST', `/plots/${plotId}/wizard/person/${target}/pick`, { file }),
   // present は描くキャラの id、player は主人公も描くか
-  wizardCover: (plotId: string, request: string, present?: string[], player?: boolean) => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/cover`, { request, present, player }),
+  wizardCover: (plotId: string, a: { request: string; present?: string[]; player?: boolean; time?: boolean; weather?: boolean }) => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/cover`, a),
   wizardUseCover: (plotId: string, file: string) => req<Plot>('POST', `/plots/${plotId}/wizard/cover/use`, { file }),
   wizardFinish: (plotId: string) => req<{ plot: Plot; wizard: PlotWizard }>('POST', `/plots/${plotId}/wizard/finish`),
 

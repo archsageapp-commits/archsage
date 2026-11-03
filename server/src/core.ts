@@ -688,7 +688,8 @@ export class Core {
     if (who.present) state.present = plot.characters.map((c) => c.id).filter((id) => who.present!.includes(id));
     const userMode = who.player === undefined ? plot.style.defaultUserMode : who.player ? 'include' : 'exclude';
     if (!state.present.length && userMode === 'exclude') throw new HttpError(400, '描く人を1人以上選んでください');
-    const chat = { id: 'cover', plotId: plot.id, userMode, safety: 'safe' } as unknown as Chat;
+    // 導入の時間帯と天気は、屋内の絵でも窓の外や光に出てしまうので、選んだときだけ入れる
+    const chat = { id: 'cover', plotId: plot.id, userMode, safety: 'safe', illustTime: who.time === true, illustWeather: who.weather === true } as unknown as Chat;
     const drawn = [...state.present, ...(userMode === 'exclude' ? [] : [USER_ID])];
     const introText = renderTemplate(intro?.text ?? '', { user: player.name, char: plot.characters.map((c) => c.name).join('、') });
     const coverNegative = 'character sheet, reference sheet, turnaround, white background, simple background, letterboxed, pillarboxed, black border, border, lineup';
@@ -1038,16 +1039,20 @@ export class Core {
     return { plot: next, wizard: w };
   }
 
-  // サムネイルを描く。注文は自由に書けて、導入の場面の絵に添える。まだサムネイルがなければ、そのまま使う
+  // サムネイルを描く。注文は自由に書けて、導入の場面の絵に添える。描いた絵をそのまま使う
   async wizardCover(plotId: string, request: string, who: CoverPeople = {}): Promise<{ plot: Plot; wizard: PlotWizard }> {
     const plot = this.plotOf(plotId);
     if (!plot.characters.length) throw new HttpError(400, 'キャラがまだいません');
     // 次に開いたときのために、注文と描く人を覚えておく
-    this.store.putWizard({ ...this.store.getWizard(plotId), coverRequest: request, coverPresent: who.present, coverPlayer: who.player });
+    this.store.putWizard({ ...this.store.getWizard(plotId), coverRequest: request, coverPresent: who.present, coverPlayer: who.player, coverTime: who.time, coverWeather: who.weather });
     const settings = this.store.getSettings();
     const rel = await this.generateCover(plot, settings, imageProfileOf(settings), request, who);
     const latest = this.plotOf(plotId);
-    if (!latest.listing.cover) latest.listing.cover = rel;
+    // 前の絵は試した絵に残るので、画面で選び直せる。編集画面で描いた絵のように試した絵にないものは消す
+    const old = latest.listing.cover;
+    const tried = this.store.getWizard(plotId).tries?.[COVER_TARGET] ?? [];
+    if (old && !tried.some((t) => t.file === old)) this.dropPlotImage(plotId, old);
+    latest.listing.cover = rel;
     return this.keepTry(latest, COVER_TARGET, 'cover', rel, [latest.listing.cover]);
   }
 
@@ -1131,8 +1136,10 @@ function imagesOf(p: PlotCharacter | Player | undefined): string[] {
   return [('avatar' in p ? p.avatar : undefined), p.fullBody].filter((f): f is string => !!f);
 }
 
-// サムネイルに描く人。キャラの id と、主人公を描くか
+// サムネイルに描く人。キャラの id と、主人公を描くか。時間帯と天気は、入れると選んだときだけ絵に入れる
 export interface CoverPeople {
   present?: string[];
   player?: boolean;
+  time?: boolean;
+  weather?: boolean;
 }

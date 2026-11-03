@@ -319,18 +319,23 @@ test('シナリオを手順で作る: 筋書きと導入は候補から選び、
     assert.deepEqual(r.wizard.tries![second.id].map((t) => t.file), [before.avatar, before.fullBody]);
     assert.ok(!exists(remadeIcon));
 
-    // サムネイルは注文を添えて描ける。まだなければ最初の絵を使い、あとから選び直せる
+    // サムネイルは注文を添えて描ける。描いた絵をそのまま使い、前の絵は試した絵から選び直せる
     r = await call('POST', `${base}/cover`, { request: '灯台の前で、2人がコーヒーを飲む' });
     const firstCover = r.plot.listing.cover;
     assert.match(firstCover ?? '', /cover-t/);
     assert.equal(r.wizard.coverRequest, '灯台の前で、2人がコーヒーを飲む');
     const illustCall = [...mock.calls].reverse().find((c) => c.body.response_format?.json_schema?.name === 'illustration')!;
     assert.match(illustCall.body.messages.at(-1)!.content, /利用者からの注文（これを優先する）\n灯台の前で/);
-    r = await call('POST', `${base}/cover`, {});
-    assert.equal(r.plot.listing.cover, firstCover);
+    // 導入の時間帯（朝）と天気は、選ばなければ絵に入れない
+    const coverPrompt = () => ctx.core.lastRequests.get(`plot:${r.plot.id}`)![0].raw ?? '';
+    assert.doesNotMatch(coverPrompt(), /morning/);
+    r = await call('POST', `${base}/cover`, { time: true, weather: true });
+    assert.match(coverPrompt(), /morning/);
+    assert.deepEqual([r.wizard.coverTime, r.wizard.coverWeather], [true, true]);
     const covers = r.wizard.tries!.cover;
     assert.equal(covers.length, 2);
-    assert.equal((await call<Plot>('POST', `${base}/cover/use`, { file: covers[1].file })).listing.cover, covers[1].file);
+    assert.equal(r.plot.listing.cover, covers[1].file);
+    assert.equal((await call<Plot>('POST', `${base}/cover/use`, { file: firstCover })).listing.cover, firstCover);
     // 描く人を選べる。主人公も入れるかを選べる
     const drawnLine = () => /# 描く人\n([^\n]*)/.exec([...mock.calls].reverse().find((c) => c.body.response_format?.json_schema?.name === 'illustration')!.body.messages.at(-1)!.content)?.[1];
     r = await call('POST', `${base}/cover`, { present: [second.id], player: false });

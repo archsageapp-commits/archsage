@@ -242,9 +242,9 @@ export function WizardPage() {
     onSettled: () => setTrying(null),
   });
   const cover = useMutation({
-    mutationFn: async (a: { request: string; present: string[]; player: boolean }) => {
+    mutationFn: async (a: { request: string; present: string[]; player: boolean; time: boolean; weather: boolean }) => {
       await flush();
-      return api.wizardCover(id, a.request, a.present, a.player);
+      return api.wizardCover(id, a);
     },
     onSuccess: (r) => {
       setWizard(r.wizard);
@@ -516,7 +516,7 @@ export function WizardPage() {
               edit={edit}
               coverBusy={cover.isPending}
               coverError={cover.error}
-              onCover={(request, present, player) => cover.mutate({ request, present, player })}
+              onCover={(a) => cover.mutate(a)}
               onUseCover={(file) => useCover.mutate(file)}
               onOpen={(files, index) => setLightbox({ files, index })}
             />
@@ -718,7 +718,7 @@ function PersonCard({
   );
 }
 
-// アイコンか立ち絵の枠。描いた絵は ‹ › で切り替え、表示している絵をそのまま使う
+// アイコン、立ち絵、サムネイルの枠。描いた絵は ‹ › で切り替え、表示している絵をそのまま使う
 function LookSlot({
   kind,
   current,
@@ -732,25 +732,27 @@ function LookSlot({
   onTry,
   onPick,
   onOpen,
+  width = 'w-28',
 }: {
-  kind: 'bust' | 'full';
+  kind: WizardTry['kind'];
   current?: string;
   tries: WizardTry[];
   empty: ReactNode;
-  label: string;
-  title: string;
-  icon: string;
-  spinning: boolean;
-  disabled: boolean;
-  onTry: () => void;
+  label?: string;
+  title?: string;
+  icon?: string;
+  spinning?: boolean;
+  disabled?: boolean;
+  onTry?: () => void; // ないときは描くボタンを出さない
   onPick: (file: string) => void;
   onOpen: (files: string[], index: number) => void;
+  width?: string;
 }) {
   const files = tries.filter((t) => t.kind === kind).map((t) => t.file);
   const i = current ? files.indexOf(current) : -1;
   return (
     <div className="space-y-1.5">
-      <div className={cx('w-28 overflow-hidden rounded-lg border bg-panel2', kind === 'bust' ? 'aspect-square' : 'aspect-[2/3]', current ? 'border-line' : 'border-dashed border-line')}>
+      <div className={cx(width, 'overflow-hidden rounded-lg border bg-panel2', kind === 'bust' ? 'aspect-square' : 'aspect-[2/3]', current ? 'border-line' : 'border-dashed border-line')}>
         {current ? (
           <button type="button" className="block h-full w-full" onClick={() => (i >= 0 ? onOpen(files, i) : onOpen([current], 0))}>
             <img src={imageUrl(current)} alt="" className="h-full w-full object-cover" />
@@ -760,7 +762,7 @@ function LookSlot({
         )}
       </div>
       {files.length > 1 && (
-        <div className="flex w-28 items-center justify-between text-dim">
+        <div className={cx(width, 'flex items-center justify-between text-dim')}>
           <Button size="sm" variant="ghost" disabled={i === 0} onClick={() => onPick(files[i < 0 ? files.length - 1 : i - 1])} aria-label="前の絵">
             <Icon name="left" size={14} />
           </Button>
@@ -770,9 +772,11 @@ function LookSlot({
           </Button>
         </div>
       )}
-      <Button size="sm" className="w-28" onClick={onTry} disabled={disabled} title={title}>
-        {spinning ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={icon} size={13} />} {label}
-      </Button>
+      {onTry && (
+        <Button size="sm" className={width} onClick={onTry} disabled={disabled} title={title}>
+          {spinning ? <Spinner className="h-3.5 w-3.5" /> : <Icon name={icon ?? 'image'} size={13} />} {label}
+        </Button>
+      )}
     </div>
   );
 }
@@ -978,7 +982,7 @@ function FinishView({
   edit: (fn: (p: Plot) => void) => void;
   coverBusy: boolean;
   coverError: unknown;
-  onCover: (request: string, present: string[], player: boolean) => void;
+  onCover: (a: { request: string; present: string[]; player: boolean; time: boolean; weather: boolean }) => void;
   onUseCover: (file: string) => void;
   onOpen: (files: string[], index: number) => void;
 }) {
@@ -991,12 +995,13 @@ function FinishView({
   });
   const player = plot.players[0];
   const [withPlayer, setWithPlayer] = useState(wizard.coverPlayer ?? plot.style.defaultUserMode === 'include');
+  const [withTime, setWithTime] = useState(wizard.coverTime ?? false);
+  const [withWeather, setWithWeather] = useState(wizard.coverWeather ?? false);
   const toggle = (cid: string) => setPresent((prev) => (prev.includes(cid) ? prev.filter((x) => x !== cid) : ids.filter((x) => prev.includes(x) || x === cid)));
   const nobody = !present.length && !(withPlayer && player);
   const missing = illustMissing(plot).map((x) => (x === PLAYER_TARGET ? (plot.players[0]?.name ?? T.player) : (plot.characters.find((c) => c.id === x)?.name ?? '')));
   const l = plot.listing;
   const made = !!(l.tagline || l.intro);
-  const covers = [...(wizard.tries?.[COVER_TARGET] ?? [])].reverse();
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <section className="space-y-4">
@@ -1048,13 +1053,15 @@ function FinishView({
         </div>
         <div className="flex flex-wrap gap-5">
           <div className="w-48 shrink-0">
-            {l.cover ? (
-              <button type="button" onClick={() => onOpen([l.cover!], 0)} className="block w-48">
-                <img src={imageUrl(l.cover)} alt="" className="aspect-[2/3] w-48 rounded-lg border border-gold/40 object-cover" />
-              </button>
-            ) : (
-              <div className="flex aspect-[2/3] w-48 items-center justify-center rounded-lg border border-dashed border-line text-xs text-faint">まだありません</div>
-            )}
+            <LookSlot
+              kind="cover"
+              width="w-48"
+              current={l.cover}
+              tries={wizard.tries?.[COVER_TARGET] ?? []}
+              empty={<div className="flex h-full items-center justify-center text-xs text-faint">まだありません</div>}
+              onPick={onUseCover}
+              onOpen={onOpen}
+            />
           </div>
           <div className="min-w-64 flex-1 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -1072,29 +1079,16 @@ function FinishView({
               {player && <Toggle checked={withPlayer} onChange={setWithPlayer} label={`${T.player}も描く（${player.name}）`} />}
             </div>
             {nobody && <p className="text-xs text-danger">描く人を1人以上選んでください</p>}
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="text-xs text-faint">{T.intro}1の状況を入れる</span>
+              <Toggle checked={withTime} onChange={setWithTime} label="時間帯" />
+              <Toggle checked={withWeather} onChange={setWithWeather} label="天気" />
+            </div>
             <TextArea rows={3} className="text-[13px]" value={request} placeholder="例 灯台の見える窓辺で、ミズキがエレナにコーヒーを差し出している。夕方の光" onChange={(e) => setRequest(e.target.value)} />
-            <Button variant="primary" onClick={() => onCover(request.trim(), present, withPlayer && !!player)} disabled={coverBusy || !plot.characters.length || nobody}>
+            <Button variant="primary" onClick={() => onCover({ request: request.trim(), present, player: withPlayer && !!player, time: withTime, weather: withWeather })} disabled={coverBusy || !plot.characters.length || nobody}>
               {coverBusy ? <Spinner className="h-3.5 w-3.5" /> : <Icon name="image" size={14} />} {coverBusy ? '描いています' : `${T.cover}を描く`}
             </Button>
             <ErrorText error={coverError} />
-            {covers.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {covers.map((t, i) => (
-                  <div key={t.id} className="shrink-0 space-y-1">
-                    <button type="button" onClick={() => onOpen(covers.map((x) => x.file), i)} className="block">
-                      <img src={imageUrl(t.file)} alt="" className={cx('aspect-[2/3] h-36 rounded-md border object-cover', t.file === l.cover ? 'border-gold' : 'border-line')} />
-                    </button>
-                    {t.file === l.cover ? (
-                      <Badge tone="gold">使っている絵</Badge>
-                    ) : (
-                      <Button size="sm" variant="ghost" onClick={() => onUseCover(t.file)}>
-                        これにする
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </section>

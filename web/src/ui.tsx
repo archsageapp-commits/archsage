@@ -64,20 +64,27 @@ export function Field({ label, hint, children, className, right }: { label: Reac
   );
 }
 
-export function Toggle({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
+export function Toggle({ checked, onChange, label, disabled, size = 'md', title }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean; size?: 'sm' | 'md'; title?: string }) {
+  const sm = size === 'sm';
   return (
-    <label className={cx('inline-flex items-center gap-2 select-none', disabled ? 'opacity-50' : 'cursor-pointer')}>
+    <label className={cx('inline-flex items-center select-none', sm ? 'gap-1' : 'gap-2', disabled ? 'opacity-50' : 'cursor-pointer')} title={title}>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cx('relative h-5 w-9 shrink-0 rounded-full transition-colors', checked ? 'bg-gold' : 'bg-track')}
+        className={cx('relative shrink-0 rounded-full transition-colors', sm ? 'h-3.5 w-6' : 'h-5 w-9', checked ? 'bg-gold' : 'bg-track')}
       >
-        <span className={cx('absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform', checked ? 'translate-x-4.5' : 'translate-x-0.5')} />
+        <span
+          className={cx(
+            'absolute left-0 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-transform',
+            sm ? 'top-0.5 h-2.5 w-2.5' : 'top-0.5 h-4 w-4',
+            checked ? (sm ? 'translate-x-3' : 'translate-x-4.5') : 'translate-x-0.5',
+          )}
+        />
       </button>
-      {label && <span className="text-sm">{label}</span>}
+      {label && <span className={sm ? 'text-[11px]' : 'text-sm'}>{label}</span>}
     </label>
   );
 }

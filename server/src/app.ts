@@ -350,10 +350,11 @@ export function createApp(opts: AppOptions) {
   });
   // サムネイルを描く。注文は自由に書ける
   api.post('/plots/:id/wizard/cover', async (c) => {
-    const body = await readJson<{ request?: string; present?: unknown; player?: unknown }>(c).catch(() => ({}) as { request?: string; present?: unknown; player?: unknown });
+    type Body = { request?: string; present?: unknown; player?: unknown; time?: unknown; weather?: unknown };
+    const body = await readJson<Body>(c).catch(() => ({}) as Body);
     const present = Array.isArray(body.present) ? body.present.filter((x): x is string => typeof x === 'string') : undefined;
-    const player = typeof body.player === 'boolean' ? body.player : undefined;
-    return c.json(await core.wizardCover(c.req.param('id'), String(body.request ?? '').trim().slice(0, 1000), { present, player }));
+    const flag = (v: unknown) => (typeof v === 'boolean' ? v : undefined);
+    return c.json(await core.wizardCover(c.req.param('id'), String(body.request ?? '').trim().slice(0, 1000), { present, player: flag(body.player), time: flag(body.time), weather: flag(body.weather) }));
   });
   api.post('/plots/:id/wizard/cover/use', async (c) => {
     const { file } = await readJson<{ file?: string }>(c);

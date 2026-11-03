@@ -38,6 +38,11 @@ function Row({ label, children, right, changed }: { label: string; children: Rea
 
 const sm = 'h-7 text-xs';
 
+// 時間帯や天気を挿絵に入れるか。外すと会話にだけ使う。屋内でも窓と外が描かれるときに外す
+function IllustSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return <Toggle size="sm" checked={checked} onChange={onChange} label={T.illust} title={`オフにすると会話にだけ使い、${T.illust}には描きません`} />;
+}
+
 export function InfoBox({
   plot,
   player,
@@ -133,10 +138,10 @@ export function InfoBox({
                 </div>
               </Row>
               <div className="grid grid-cols-2 gap-2">
-                <Row label="時間帯" changed={!!prevState && prevState.time !== local.time}>
+                <Row label="時間帯" changed={!!prevState && prevState.time !== local.time} right={<IllustSwitch checked={chat.illustTime !== false} onChange={(v) => onChat({ illustTime: v })} />}>
                   <Input className={sm} value={local.time ?? ''} onChange={(e) => edit((s) => void (s.time = e.target.value))} />
                 </Row>
-                <Row label="天気" changed={!!prevState && prevState.weather !== local.weather}>
+                <Row label="天気" changed={!!prevState && prevState.weather !== local.weather} right={<IllustSwitch checked={chat.illustWeather !== false} onChange={(v) => onChat({ illustWeather: v })} />}>
                   <Input className={sm} value={local.weather ?? ''} onChange={(e) => edit((s) => void (s.weather = e.target.value))} />
                 </Row>
               </div>
@@ -213,12 +218,6 @@ export function InfoBox({
               <Segmented value={chat.userMode} onChange={(v) => onChat({ userMode: v as UserMode })} options={(['include', 'pov', 'exclude'] as const).map((v) => ({ value: v, label: USER_MODE_LABELS[v] }))} />
             </Field>
             <Toggle checked={chat.autoIllustrate} onChange={(v) => onChat({ autoIllustrate: v })} label={`返答ごとに${T.illust}を作る`} />
-            <Field label={`${T.illust}に入れる状況`} hint="外すと、その欄は会話にだけ使い、絵には描きません。屋内でも窓と外が描かれるときに外します">
-              <div className="flex flex-wrap gap-4">
-                <Toggle checked={chat.illustTime !== false} onChange={(v) => onChat({ illustTime: v })} label="時間帯" />
-                <Toggle checked={chat.illustWeather !== false} onChange={(v) => onChat({ illustWeather: v })} label="天気" />
-              </div>
-            </Field>
             <Field label={T.preset}>
               <Select value={chat.presetId} onChange={(e) => onChat({ presetId: e.target.value })}>
                 {(presets.data ?? ([] as Preset[])).map((p) => (

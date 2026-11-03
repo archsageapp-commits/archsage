@@ -330,6 +330,8 @@ export interface PlotWizard {
   coverRequest?: string; // サムネイルをどんな絵にするかの注文
   coverPresent?: string[]; // サムネイルに描くキャラの id。ないときは導入1の場面にいる人
   coverPlayer?: boolean; // サムネイルに主人公を描くか。ないときはシナリオの描き方に従う
+  coverTime?: boolean; // サムネイルに導入の時間帯を入れるか。ないときは入れない
+  coverWeather?: boolean; // サムネイルに導入の天気を入れるか。ないときは入れない
   changedAt?: Partial<Record<WizardStepKey | 'finish', number>>; // 段ごとに、AIで最後に変えた時刻
 }
 
